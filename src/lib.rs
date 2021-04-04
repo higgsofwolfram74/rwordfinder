@@ -1,36 +1,58 @@
-use std::{collections::HashSet, usize};
+use std::{collections::{HashMap, HashSet}, usize};
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use ndarray::prelude::*;
+use ndarray::Array2;
 
 const LONGEST_WORD: usize = 31;
 const ARRAY_HEIGHT: usize = 5;
 const ARRAY_LENGTH: usize = 5;
+//const HashMap<&str, fn> = ["up", "upright", "right", "downright", "down", "downleft", "left", "upleft"];
 
+
+//pub struct Graph {
+//    graph: [Node; ARRAY_HEIGHT * ARRAY_LENGTH]
+//}
+//
+//impl Graph {
+//    fn make(wordsearch: WordBlob) -> Graph {
+//        
+//        let mut reprgraph: Graph;
+//        let mut arr: [Node; ARRAY_HEIGHT * ARRAY_LENGTH]; 
+//        for ((y, x), point) in &wordsearch.wordsearch.indexed_iter() {
+//            move_up(&wordsearch, x, y)
+//        }
+//        Graph
+//    }
+//}
+//
+//impl ArrayTraversal for Graph {
+//    fn move_up(&self) -> Option<
+//}
+//pub struct Node {
+//    node: char,
+//    directions: [(&str, Option<Box<Node>>); 8],
+//}
 
 //holds the dictionary to use
-pub struct WordList {
-    words: HashSet<String>
+pub struct Dictionary {
+    lexicon: HashSet<String>
 }
 
-impl WordList {
-    pub fn init(path: &str) -> WordList {
-        let mut wordlist = WordList {
-            words: HashSet::new(),
-        };
+impl Dictionary {
+    pub fn init(path: &str) -> Dictionary {
+        
 
         let file = File::open(path).expect("File Not Found");
 
         let reader = BufReader::new(file);
 
-
-        for line in reader.lines() {
-            let line = line.unwrap();
-
-            wordlist.words.insert(line);
-        }
-
+        let read = reader.lines().map(|x| {x.unwrap()});
+        
+        let mut wordlist = Dictionary {
+            lexicon: read.collect(),
+        };
+        
         wordlist
     }
 
@@ -45,16 +67,7 @@ pub enum LastandSecondLast {
     Y
 }
 
-pub enum Direction {
-    Up,
-    Upright,
-    Right,
-    Downright,
-    Down,
-    Downleft,
-    Left,
-    Upleft
-}
+
 
 
 pub struct Letters {
@@ -92,21 +105,21 @@ trait DictLookup {
 }
 
 trait ArrayTraversal {
-    fn move_up(&self) -> char;
+    fn move_up(&self, x: usize, y: usize) -> Option<char>;
 
-    fn move_upright(&self) -> char;
+    fn move_upright(&self, x: usize, y: usize) -> Option<char>;
     
-    fn move_right(&self) -> char;
+    fn move_right(&self) -> Option<char>;
 
-    fn move_downright(&self) -> char;
+    fn move_downright(&self) -> Option<char>;
 
-    fn move_down(&self) -> char;
+    fn move_down(&self) -> Option<char>;
 
-    fn move_downleft(&self) -> char;
+    fn move_downleft(&self) -> Option<char>;
 
-    fn move_left(&self) -> char;
+    fn move_left(&self) -> Option<char>;
 
-    fn move_upleft(&self) -> char;
+    fn move_upleft(&self) -> Option<char>;
 }
 
 pub struct WordBlob {
@@ -114,7 +127,7 @@ pub struct WordBlob {
 }
 
 impl WordBlob {
-    pub fn new() -> WordBlob {
+    pub fn alloc() -> WordBlob {
         WordBlob {
             wordsearch: Array::from_elem((ARRAY_HEIGHT, ARRAY_LENGTH), '_')
         }
@@ -146,4 +159,12 @@ impl WordBlob {
             }
         }
     }
+
+}
+
+impl ArrayTraversal for WordBlob {
+    fn move_up(&self, x: usize, y: usize) -> Option<char> {
+        self.wordsearch.get([x, y - 1])
+    }
+
 }
