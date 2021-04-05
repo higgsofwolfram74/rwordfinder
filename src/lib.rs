@@ -123,7 +123,9 @@ trait ArrayTraversal {
 }
 
 pub struct WordBlob {
-    wordsearch: Array2<char>
+    wordsearch: Array2<char>,
+    dictionary: HashSet<String>,
+    letters: Letters
 }
 
 impl WordBlob {
@@ -163,8 +165,37 @@ impl WordBlob {
 }
 
 impl ArrayTraversal for WordBlob {
-    fn move_up(&self, x: usize, y: usize) -> Option<char> {
-        self.wordsearch.get([x, y - 1])
+    fn move_up(&self, row: usize, column: usize) -> Vec<String> {
+        let found = Vec::new();
+        let stack = String::new();
+        let mut rowdex = row - 1;
+
+        match self.wordsearch.get((rowdex, column)) {
+            Some(c) => {
+
+                stack.append(c);
+                loop {
+                    rowdex - 1;
+                    match self.wordsearch.get(rowdex, column) {
+                        Some(c) => {
+                            stack.append(c);
+                            
+                            if stack.len() > 2 && stack.len() < LONGEST_WORD{
+                                if self.word_check(stack) {
+                                    found.append(stack);
+                                }
+                            }
+
+
+
+                            
+                        }
+                    }
+                }
+            }
+        }
+
+
     }
 
 }
