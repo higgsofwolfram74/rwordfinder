@@ -64,15 +64,16 @@ pub enum LastandSecondLast {
     Doubleconsonant,
     Vowel,
     Doublevowel,
-    Y
+    Y,
+    None
 }
 
 
 
 
 pub struct Letters {
-    cons: HashSet<char>,
-    vows: HashSet<char>,
+    consonants: HashSet<char>,
+    vowels: HashSet<char>,
     //Y has characteristics of both so it will be used instead
     y: char,
 }
@@ -80,7 +81,7 @@ pub struct Letters {
 impl Letters {
     pub fn init() -> Letters {
 
-        let consonant: HashSet<char> = vec!('b', 'c', 'd', 'f', 'g', 'h',
+        let cons: HashSet<char> = vec!('b', 'c', 'd', 'f', 'g', 'h',
                            'j', 'k', 'l', 'm', 'n', 'p',
                            'q', 'r', 's', 't', 'v', 'w', 
                            'x', 'z').iter().collect();
@@ -95,7 +96,19 @@ impl Letters {
         Letters {
             cons: co,
             vows: vo,
-            y: char
+            y: char,
+        }
+    }
+
+    pub fn letter_test(&self, letter: &char) -> LastandSecondLast {
+        if self.consonant.contains(letter) {
+            return LastandSecondLast::Consonant;
+        } else if self.vowels.contains(letter) {
+            return LastandSecondLast::Vowel;
+        } else if letter == 'y' {
+            return LastandSecondLast::Y;
+        } else {
+            return LastandSecondLast::None;
         }
     }
 }
@@ -104,22 +117,9 @@ trait DictLookup {
     fn word_check(&self) -> bool;
 }
 
+
 trait ArrayTraversal {
-    fn move_up(&self, x: usize, y: usize) -> Option<char>;
-
-    fn move_upright(&self, x: usize, y: usize) -> Option<char>;
-    
-    fn move_right(&self) -> Option<char>;
-
-    fn move_downright(&self) -> Option<char>;
-
-    fn move_down(&self) -> Option<char>;
-
-    fn move_downleft(&self) -> Option<char>;
-
-    fn move_left(&self) -> Option<char>;
-
-    fn move_upleft(&self) -> Option<char>;
+    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<char>;
 }
 
 pub struct WordBlob {
@@ -134,6 +134,23 @@ impl WordBlob {
             wordsearch: Array::from_elem((ARRAY_HEIGHT, ARRAY_LENGTH), '_')
         }
     }
+
+    fn go((row, column): (usize, usize), direction: &str) -> (usize, usize) {
+        match direction {
+            "up" => return (row - 1, column),
+            "upright" => return (row - 1, column + 1),
+            "right" => return (row, column + 1),
+            "downright" => return (row + 1, column + 1),
+            "down" => return (row + 1, column),
+            "downleft" => return (row + 1, column - 1),
+            "left" => return (row, column - 1),
+            "upleft" => return (row - 1, column - 1),
+
+            _ => panic!("Unexpected direction passed")
+        }
+    }
+
+    fn letter_append(letter: &char, &mut stack: String, letter_state: LastandSecondLast)
 
     pub fn get(&mut self, path: &str) {
         let file = File::open(path).expect("File not found");
@@ -165,17 +182,47 @@ impl WordBlob {
 }
 
 impl ArrayTraversal for WordBlob {
-    fn move_up(&self, row: usize, column: usize) -> Vec<String> {
+    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<Vec<String>> {
         let found = Vec::new();
         let stack = String::new();
-        let mut rowdex = row - 1;
 
-        match self.wordsearch.get((rowdex, column)) {
+        let currentrow = row;
+        let currentcolumn = column;
+
+        let mut current_letter = self.wordsearch.get(row, column).unwrap();
+        let mut letter_state: LastandSecondLast = self.letters.letter_test(current_letter);
+        let mut next_state: LastandSecondLast;
+
+        if letter_state == LastandSecondLast::None {
+            return None
+        } else {
+            stack.append(current_letter)
+        }
+
+        (currentrow, currentcolumn) = WordBlob::go((currentrow, currentcolumn), direction);
+
+        match self.wordsearch.get((currentrow, currentcolumn)) {
             Some(c) => {
+                current_letter = c;
+                match self.letters.letter_test(current_letter) {
+                    LastandSecondLast::Consonant => {
+                        if letter_state != LastandSecondLast::Consonant && letter_state != LastandSecondLast::Doubleconsonant {
+                            letter_state = LastandSecondLast::Consonant;
+                            stack.append(current_letter)
+                        } else if letter_state != LastandSecondLast::Doubleconsonant {
+                            letter_state = LastandSecondLast::Doubleconsonant;
+                            stack.append(current)
+                        }
+                    }
+                    LastandSecondLast::Vowel =>
+                    LastandSecondLast::Y =>
+                    LastandSecondLast::Consonant =>
+                }
 
-                stack.append(c);
+                
                 loop {
-                    rowdex - 1;
+                    (currentrow, currentcolumn) = WordBlob::go((currentrow, currentcolumn), direction);
+                    
                     match self.wordsearch.get(rowdex, column) {
                         Some(c) => {
                             stack.append(c);
@@ -184,18 +231,17 @@ impl ArrayTraversal for WordBlob {
                                 if self.word_check(stack) {
                                     found.append(stack);
                                 }
-                            }
-
-
-
-                            
+                            } else if stack.len > 2 {
+                                return found;                                
+                            }                                                  
                         }
+
+                        None => return None
                     }
                 }
             }
+
+            None => return None
         }
-
-
     }
-
 }
