@@ -59,9 +59,11 @@ impl Dictionary {
 
 
 //See what the last letter was. Most words don't have more than 2 of a letter type sequentially
+//update: a select few words have 3 consonants together
 pub enum LastandSecondLast {
     Consonant,
     Doubleconsonant,
+    Tripleconsonant,
     Vowel,
     Doublevowel,
     Y,
@@ -147,6 +149,28 @@ impl WordBlob {
             "upleft" => return (row - 1, column - 1),
 
             _ => panic!("Unexpected direction passed")
+        }
+    }
+
+    fn last_letter(last_letter: LastandSecondLast, current_letter: LastandSecondLast) -> LastandSecondLast {
+        match current_letter {
+            LastandSecondLast::Consonant => {
+                match last_letter {
+                    LastandSecondLast::Consonant => LastandSecondLast::Doubleconsonant,
+                    LastandSecondLast::Doubleconsonant => LastandSecondLast::Tripleconsonant,
+                    LastandSecondLast::Tripleconsonant => LastandSecondLast::None,
+                    LastandSecondLast::Vowel => LastandSecondLast::Consonant,
+                    LastandSecondLast::Doublevowel => LastandSecondLast::Consonant,
+                    LastandSecondLast::Y => LastandSecondLast::Consonant,
+                    LastandSecondLast::None => panic!("Invariant has not been upheld.")
+                }
+            }
+            LastandSecondLast::Doubleconsonant =>
+            LastandSecondLast::Tripleconsonant =>
+            LastandSecondLast::Vowel =>
+            LastandSecondLast::Doublevowel =>
+            LastandSecondLast::Y =>
+            LastandSecondLast::None =>
         }
     }
 
