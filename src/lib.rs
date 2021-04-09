@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, usize};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -7,37 +7,22 @@ use ndarray::Array2;
 const LONGEST_WORD: usize = 31;
 const ARRAY_HEIGHT: usize = 5;
 const ARRAY_LENGTH: usize = 5;
-//const HashMap<&str, fn> = ["up", "upright", "right", "downright", "down", "downleft", "left", "upleft"];
 
 
-//pub struct Graph {
-//    graph: [Node; ARRAY_HEIGHT * ARRAY_LENGTH]
-//}
-//
-//impl Graph {
-//    fn make(wordsearch: WordBlob) -> Graph {
-//        
-//        let mut reprgraph: Graph;
-//        let mut arr: [Node; ARRAY_HEIGHT * ARRAY_LENGTH]; 
-//        for ((y, x), point) in &wordsearch.wordsearch.indexed_iter() {
-//            move_up(&wordsearch, x, y)
-//        }
-//        Graph
-//    }
-//}
-//
-//impl ArrayTraversal for Graph {
-//    fn move_up(&self) -> Option<
-//}
-//pub struct Node {
-//    node: char,
-//    directions: [(&str, Option<Box<Node>>); 8],
-//}
+pub trait DictLookup {
+    fn word_check(&self, word: &String) -> bool;
+}
+
+
+pub trait ArrayTraversal {
+    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<char>;
+}
 
 //holds the dictionary to use
 pub struct Dictionary {
     lexicon: HashSet<String>
 }
+
 
 impl Dictionary {
     pub fn init(path: &str) -> Dictionary {
@@ -55,22 +40,7 @@ impl Dictionary {
         
         wordlist
     }
-
-
-
-//See what the last letter was. Most words don't have more than 2 of a letter type sequentially
-//update: a select few words have 3 consonants together
-pub enum LastandSecondLast {
-    Consonant,
-    Doubleconsonant,
-    Tripleconsonant,
-    Vowel,
-    Doublevowel,
-    Y,
-    None
 }
-
-
 
 
 pub struct Letters {
@@ -115,25 +85,86 @@ impl Letters {
     }
 }
 
-trait DictLookup {
-    fn word_check(&self) -> bool;
+
+//See what the last letter was. Most words don't have more than 2 of a letter type sequentially
+//update: a select few words have 3 consonants together
+pub enum LastandSecondLast {
+    Consonant,
+    Doubleconsonant,
+    Tripleconsonant,
+    Vowel,
+    Doublevowel,
+    Y,
+    None
+}
+
+impl LastandSecondLast {
+    //ugly code that takes our current letter state, compares it with the last code and returns the corresponding state
+    fn last_letter(current_letter: LastandSecondLast, last_letter: LastandSecondLast) -> LastandSecondLast {
+        match current_letter {
+            LastandSecondLast::Consonant => {
+                
+                match last_letter {    
+                    LastandSecondLast::Consonant => LastandSecondLast::Doubleconsonant,
+                    LastandSecondLast::Doubleconsonant => LastandSecondLast::Tripleconsonant,
+                    LastandSecondLast::Tripleconsonant => LastandSecondLast::None,
+                    LastandSecondLast::Vowel => LastandSecondLast::Consonant,
+                    LastandSecondLast::Doublevowel => LastandSecondLast::Consonant,
+                    LastandSecondLast::Y => LastandSecondLast::Consonant,
+                    LastandSecondLast::None => panic!("Invariant has not been upheld.")
+                
+                }
+            }
+
+            LastandSecondLast::Doubleconsonant => panic!("How?"),
+            LastandSecondLast::Tripleconsonant => panic!("How?"),
+            
+            LastandSecondLast::Vowel => {
+                match last_letter {    
+
+                    LastandSecondLast::Consonant => LastandSecondLast::Vowel,
+                    LastandSecondLast::Doubleconsonant => LastandSecondLast::Vowel,
+                    LastandSecondLast::Tripleconsonant => LastandSecondLast::Vowel,
+                    LastandSecondLast::Vowel => LastandSecondLast::Doublevowel,
+                    LastandSecondLast::Doublevowel => LastandSecondLast::None,
+                    LastandSecondLast::Y => LastandSecondLast::Consonant,
+                    LastandSecondLast::None => panic!("Invariant has not been upheld.")
+                                       
+
+            }
+            LastandSecondLast::Doublevowel => panic!("How?"),
+            LastandSecondLast::Y => {
+
+                match last_letter {    
+
+                    LastandSecondLast::Consonant => LastandSecondLast::Y,
+                    LastandSecondLast::Doubleconsonant => LastandSecondLast::Y,
+                    LastandSecondLast::Tripleconsonant => LastandSecondLast::Y,
+                    LastandSecondLast::Vowel => LastandSecondLast::Y,
+                    LastandSecondLast::Doublevowel => LastandSecondLast::Y,
+                    LastandSecondLast::Y => LastandSecondLast::None,
+                    LastandSecondLast::None => panic!("Invariant has not been upheld.")
+
+            }
+            LastandSecondLast::None => LastandSecondLast::None
+        }
+    }
 }
 
 
-trait ArrayTraversal {
-    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<char>;
-}
 
 pub struct WordBlob {
     wordsearch: Array2<char>,
-    dictionary: HashSet<String>,
+    dictionary: Dictionary,
     letters: Letters
 }
 
 impl WordBlob {
-    pub fn alloc() -> WordBlob {
+    pub fn alloc(path_to_dictionary: &str) -> WordBlob {
         WordBlob {
-            wordsearch: Array::from_elem((ARRAY_HEIGHT, ARRAY_LENGTH), '_')
+            wordsearch: Array2::from_elem((ARRAY_HEIGHT, ARRAY_LENGTH), '_'),
+            dictionary: Dictionary::init(path_to_dictionary),
+            letters: Letters::init()
         }
     }
 
@@ -152,29 +183,7 @@ impl WordBlob {
         }
     }
 
-    fn last_letter(last_letter: LastandSecondLast, current_letter: LastandSecondLast) -> LastandSecondLast {
-        match current_letter {
-            LastandSecondLast::Consonant => {
-                match last_letter {
-                    LastandSecondLast::Consonant => LastandSecondLast::Doubleconsonant,
-                    LastandSecondLast::Doubleconsonant => LastandSecondLast::Tripleconsonant,
-                    LastandSecondLast::Tripleconsonant => LastandSecondLast::None,
-                    LastandSecondLast::Vowel => LastandSecondLast::Consonant,
-                    LastandSecondLast::Doublevowel => LastandSecondLast::Consonant,
-                    LastandSecondLast::Y => LastandSecondLast::Consonant,
-                    LastandSecondLast::None => panic!("Invariant has not been upheld.")
-                }
-            }
-            LastandSecondLast::Doubleconsonant =>
-            LastandSecondLast::Tripleconsonant =>
-            LastandSecondLast::Vowel =>
-            LastandSecondLast::Doublevowel =>
-            LastandSecondLast::Y =>
-            LastandSecondLast::None =>
-        }
-    }
-
-    fn letter_append(letter: &char, &mut stack: String, letter_state: LastandSecondLast)
+    
 
     pub fn get(&mut self, path: &str) {
         let file = File::open(path).expect("File not found");
@@ -205,67 +214,74 @@ impl WordBlob {
 
 }
 
-impl ArrayTraversal for WordBlob {
-    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<Vec<String>> {
-        let found = Vec::new();
-        let stack = String::new();
+impl DictLookup for WordBlob {
+    fn word_check(&self, word: &str) -> bool {
+        self.dictionary.lexicon.contains(word)
+    }
+}
 
-        let currentrow = row;
-        let currentcolumn = column;
+impl ArrayTraversal for WordBlob {
+    fn traverse(&self, row: &usize, column: &usize, direction: &str) -> Option<Vec<String>> {
+        let mut found = Vec::new();
+        let mut stack = String::new();
+        let mut current_state: LastandSecondLast;
+
+
+        let mut currentrow = row;
+        let mut currentcolumn = column;
 
         let mut current_letter = self.wordsearch.get(row, column).unwrap();
-        let mut letter_state: LastandSecondLast = self.letters.letter_test(current_letter);
-        let mut next_state: LastandSecondLast;
-
+        let mut last_state: LastandSecondLast = self.letters.letter_test(current_letter);
+        
         if letter_state == LastandSecondLast::None {
             return None
         } else {
-            stack.append(current_letter)
+            stack.append(c)
         }
 
         (currentrow, currentcolumn) = WordBlob::go((currentrow, currentcolumn), direction);
-
-        match self.wordsearch.get((currentrow, currentcolumn)) {
-            Some(c) => {
-                current_letter = c;
-                match self.letters.letter_test(current_letter) {
-                    LastandSecondLast::Consonant => {
-                        if letter_state != LastandSecondLast::Consonant && letter_state != LastandSecondLast::Doubleconsonant {
-                            letter_state = LastandSecondLast::Consonant;
-                            stack.append(current_letter)
-                        } else if letter_state != LastandSecondLast::Doubleconsonant {
-                            letter_state = LastandSecondLast::Doubleconsonant;
-                            stack.append(current)
-                        }
-                    }
-                    LastandSecondLast::Vowel =>
-                    LastandSecondLast::Y =>
-                    LastandSecondLast::Consonant =>
-                }
-
-                
-                loop {
-                    (currentrow, currentcolumn) = WordBlob::go((currentrow, currentcolumn), direction);
+        
+        loop {
+            match self.wordsearch.get((currentrow, currentcolumn)) {
+                Some(c) => {
+                    current_letter = c;
                     
-                    match self.wordsearch.get(rowdex, column) {
-                        Some(c) => {
-                            stack.append(c);
-                            
-                            if stack.len() > 2 && stack.len() < LONGEST_WORD{
-                                if self.word_check(stack) {
-                                    found.append(stack);
-                                }
-                            } else if stack.len > 2 {
-                                return found;                                
-                            }                                                  
+                    current_state = self.letters.letter_test(current_letter);
+    
+                    match LastandSecondLast::last_letter(current_state, last_state) {
+                        LastandSecondLast::None => {
+                            if !(found.is_empty()) {
+                                return Some(found)
+                            } else {
+                                return None;
+                            }
                         }
 
-                        None => return None
-                    }
-                }
-            }
+                        _ => {
+                            stack.append(c);
 
-            None => return None
+                            if stack.len() >= 3 {
+                                
+                                if self.word_check(stack) {
+                                    found.append(((row, column), stack));
+                                }
+                            }
+
+                            if stack.len() > LONGEST_WORD {
+                                if !(found.is_empty()) {
+                                    return Some(found);
+                                }
+                            }
+                            
+                            (currentrow, currentcolumn) = WordBlob::go((currentrow, currentcolumn), direction);
+                            last_state = current_state
+
+                        }
+                    }                   
+                }
+    
+                None => None
+            }            
         }
     }
 }
