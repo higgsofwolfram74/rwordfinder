@@ -15,7 +15,7 @@ pub trait DictLookup {
 
 
 pub trait ArrayTraversal {
-    fn traverse(&self, row: &usize, column: &usize, direction: &str) -> Option<Vec<((usize, usize), String)>>;
+    fn traverse(&self, row: &usize, column: &usize, direction: &str) -> Option<((usize, usize), String)>;
 }
 
 //holds the dictionary to use
@@ -63,6 +63,7 @@ impl Letters {
         }
     }
 
+
     pub fn letter_test(&self, letter: &char) -> LastandSecondLast {
         if self.consonants.contains(letter) {
             return LastandSecondLast::Consonant;
@@ -76,10 +77,31 @@ impl Letters {
     }
 }
 
+struct CurrentWord {
+    current_letter: char,
+    letters: String,
+    location: (usize, usize),
+    final_word: ((usize, usize), String),
+    last_state: LastandSecondLast,
+    current_state: LastandSecondLast,
+}
+
+impl CurrentWord {
+    fn new() -> CurrentWord {
+        CurrentWord {
+            current_letters: '_',
+            letters: String::new(),
+            location: (0,0),
+            final_word: ((0,0), String::new()),
+            last_state: LastandSecondLast::None,
+            current_state: LastandSecondLast::None
+        }
+    }
+}
 
 //See what the last letter was. Most words don't have more than 2 of a letter type sequentially
 //update: a select few words have 3 consonants together
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum LastandSecondLast {
     Consonant,
     Doubleconsonant,
@@ -208,6 +230,10 @@ impl WordBlob {
         }
     }
 
+    fn whatitdo(&self, CurrentWord, &str) {
+
+    }
+
 }
 
 impl DictLookup for WordBlob {
@@ -217,70 +243,29 @@ impl DictLookup for WordBlob {
 }
 
 impl ArrayTraversal for WordBlob {
-    fn traverse(&self, row: &usize, column: &usize, direction: &str) -> Option<Vec<((usize, usize), String)>> {
-        let mut found: Vec<((usize, usize), String)> = Vec::new();
-        let mut stack = String::new();
-        let mut current_state: LastandSecondLast;
+    fn traverse(&self, row: &usize, column: &usize, direction: &str) -> Option<((usize, usize), String)> {
+        let mut gamertime = CurrentWord::new();
 
+        gamertime.location = (*row, *column);
+        gamertime.current_letter = *self.wordsearch.get(gamertime.location).unwrap();
+        gamertime.last_state = self.letters.letter_test(&gamertime.current_letter);
 
-        let currentrow = *row;
-        let currentcolumn = *column;
-
-        let mut current_letter = self.wordsearch.get((currentrow, currentcolumn)).unwrap();
-        let mut last_state: LastandSecondLast = self.letters.letter_test(current_letter);
-        
-        if last_state == LastandSecondLast::None {
-            return None
+        if gamertime.last_state == LastandSecondLast::None || gamertime.last_state == LastandSecondLast::Err {
+            return None;
         } else {
-            stack.push(*current_letter);
+            gamertime.letters.push(gamertime.current_letter);
         }
-
-        let (currentrow, currentcolumn): (usize, usize) = WordBlob::go((currentrow, currentcolumn), &direction);
-        
-        
+                
         loop {
             match self.wordsearch.get((currentrow, currentcolumn)) {
                 Some(c) => {
                     current_letter = c;
                     
                     current_state = self.letters.letter_test(current_letter);
+
+                    self.whatitdo()
     
-                    match LastandSecondLast::last_letter(&current_state, &last_state) {
-                        LastandSecondLast::None => {
-                            if !(found.is_empty()) {
-                                return Some(found);
-                            } else {
-                                return None;
-                            }
-                        }
 
-                        _ => {
-                            stack.push(*c);
-
-                            if stack.len() >= 3 {
-                                
-                                if self.word_check(&stack) {
-                                    found.push(((*row, *column), stack.clone()));
-                                }
-                            }
-
-                            if stack.len() > LONGEST_WORD {
-                                if !(found.is_empty()) {
-                                    return Some(found);
-                                }
-                            }
-
-                            last_state = current_state;
-                            
-                            let (currentrow, currentcolumn): (usize, usize) = WordBlob::go((currentrow, currentcolumn), &direction);
-
-                        }
-                    }                   
-                }
-    
-                None => ()
-            }            
-        }
     }
 }
 
@@ -290,6 +275,7 @@ mod tests {
     #[test]
     fn dictionary_checker() {
         let testdict = Dictionary::init("myDictsorted.txt");
-        println!("{}", testdict.lexicon.contains("wantonly"));
+        assert!(testdict.lexicon.contains("wantonly"));
+        
     }
 }
