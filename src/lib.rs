@@ -34,11 +34,9 @@ impl Dictionary {
 
         let read = reader.lines().map(|x| {x.unwrap()});
         
-        let mut wordlist = Dictionary {
+        Dictionary {
             lexicon: read.collect(),
-        };
-        
-        wordlist
+        }
     }
 }
 
@@ -225,8 +223,8 @@ impl ArrayTraversal for WordBlob {
         let mut current_state: LastandSecondLast;
 
 
-        let mut currentrow = *row;
-        let mut currentcolumn = *column;
+        let currentrow = *row;
+        let currentcolumn = *column;
 
         let mut current_letter = self.wordsearch.get((currentrow, currentcolumn)).unwrap();
         let mut last_state: LastandSecondLast = self.letters.letter_test(current_letter);
@@ -262,7 +260,7 @@ impl ArrayTraversal for WordBlob {
                             if stack.len() >= 3 {
                                 
                                 if self.word_check(&stack) {
-                                    found.push(((*row, *column), stack));
+                                    found.push(((*row, *column), stack.clone()));
                                 }
                             }
 
@@ -271,6 +269,8 @@ impl ArrayTraversal for WordBlob {
                                     return Some(found);
                                 }
                             }
+
+                            last_state = current_state;
                             
                             let (currentrow, currentcolumn): (usize, usize) = WordBlob::go((currentrow, currentcolumn), &direction);
 
@@ -281,5 +281,15 @@ impl ArrayTraversal for WordBlob {
                 None => ()
             }            
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn dictionary_checker() {
+        let testdict = Dictionary::init("myDictsorted.txt");
+        println!("{}", testdict.lexicon.contains("wantonly"));
     }
 }
