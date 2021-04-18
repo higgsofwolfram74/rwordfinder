@@ -230,7 +230,7 @@ impl WordBlob {
         }
     }
 
-    fn whatitdo(&self, CurrentWord, &str) {
+    fn whatitdo(&self, whatitbe: CurrentWord) {
 
     }
 
@@ -257,13 +257,19 @@ impl ArrayTraversal for WordBlob {
         }
                 
         loop {
-            match self.wordsearch.get((currentrow, currentcolumn)) {
-                Some(c) => {
-                    current_letter = c;
-                    
-                    current_state = self.letters.letter_test(current_letter);
+            gamertime.location = WordBlob::go(gamertime.location, &direction);
 
-                    self.whatitdo()
+            match self.wordsearch.get(gamertime.location) {
+                Some(c) => {
+                    gamertime.current_letter = *c;
+                    
+                    gamertime.current_state = self.letters.letter_test(&gamertime.current_letter);
+
+                    self.whatitdo(&mut gamertime);
+
+                None => {
+
+                }
     
 
     }
