@@ -15,7 +15,7 @@ pub trait DictLookup {
 
 
 pub trait ArrayTraversal {
-    fn traverse(&self, row: &usize, column: &usize, direction: &str) -> Option<((usize, usize), String)>;
+    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<((usize, usize), String)>;
 }
 
 //holds the dictionary to use
@@ -230,8 +230,8 @@ impl WordBlob {
         }
     }
 
-    fn whatitdo(&self, whatitbe: CurrentWord) {
-
+    fn whatitdo(&self, whatitbe:&mut CurrentWord) {
+        
     }
 
 }
@@ -243,15 +243,15 @@ impl DictLookup for WordBlob {
 }
 
 impl ArrayTraversal for WordBlob {
-    fn traverse(&self, row: &usize, column: &usize, direction: &str) -> Option<((usize, usize), String)> {
+    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<((usize, usize), String)> {
         let mut gamertime = CurrentWord::new();
 
-        gamertime.location = (*row, *column);
+        gamertime.location = (row, column);
         gamertime.current_letter = *self.wordsearch.get(gamertime.location).unwrap();
         gamertime.last_state = self.letters.letter_test(&gamertime.current_letter);
 
-        if gamertime.last_state == LastandSecondLast::None || gamertime.last_state == LastandSecondLast::Err {
-            return None;
+        if gamertime.last_state == LastandSecondLast::None { 
+                    return None;
         } else {
             gamertime.letters.push(gamertime.current_letter);
         }
