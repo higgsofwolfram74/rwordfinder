@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use ndarray::Array2;
+use rayon::prelude::*;
 
 const LONGEST_WORD: usize = 31;
 const ARRAY_HEIGHT: usize = 5;
@@ -13,10 +14,6 @@ pub trait DictLookup {
     fn word_check(&self, word: &String) -> bool;
 }
 
-
-pub trait ArrayTraversal {
-    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<((usize, usize), String)>;
-}
 
 //holds the dictionary to use
 pub struct Dictionary {
@@ -89,7 +86,7 @@ struct CurrentWord {
 impl CurrentWord {
     fn new() -> CurrentWord {
         CurrentWord {
-            current_letters: '_',
+            current_letter: '_',
             letters: String::new(),
             location: (0,0),
             final_word: ((0,0), String::new()),
@@ -109,8 +106,7 @@ pub enum LastandSecondLast {
     Vowel,
     Doublevowel,
     Y,
-    None,
-    Err(&'static str)
+    None
 }
 
 impl LastandSecondLast {
@@ -165,8 +161,11 @@ impl LastandSecondLast {
             _ => LastandSecondLast::Err("Data in corrupted state.")
         }
     }
+
+
 }
 
+const DIRECTIONS: [&'static str;  8] = ["Up", "Upleft", "Left", "Downleft", "Down", "Downright", "Right", "Upright"];
 
 
 pub struct WordBlob {
@@ -174,6 +173,8 @@ pub struct WordBlob {
     dictionary: Dictionary,
     letters: Letters
 }
+
+
 
 impl WordBlob {
     pub fn alloc(path_to_dictionary: &str) -> WordBlob {
@@ -230,20 +231,28 @@ impl WordBlob {
         }
     }
 
-    fn whatitdo(&self, whatitbe:&mut CurrentWord) {
-        
+
+    fn traverse(&self, word: &mut CurrentWord, direction: &str) {
+        loop {
+            let next = WordBlob::go(word.location, direction);
+
+            word.current_letter = *self.wordsearch.get(next).unwrap();
+
+            let current_state = self.letters.letter_test(&word.current_letter);
+
+            match LastandSecondLast::last_letter(current_state, word.last_state) {
+                LastandSecondLast::Consonant
+            }
+
+            word.location = next;
+            word.last_state = current_state;
+
+        }
     }
 
-}
+    
 
-impl DictLookup for WordBlob {
-    fn word_check(&self, word: &String) -> bool {
-        self.dictionary.lexicon.contains(word)
-    }
-}
-
-impl ArrayTraversal for WordBlob {
-    fn traverse(&self, row: usize, column: usize, direction: &str) -> Option<((usize, usize), String)> {
+    fn whatitdo(&self) {
         let mut gamertime = CurrentWord::new();
 
         gamertime.location = (row, column);
@@ -255,25 +264,32 @@ impl ArrayTraversal for WordBlob {
         } else {
             gamertime.letters.push(gamertime.current_letter);
         }
-                
-        loop {
-            gamertime.location = WordBlob::go(gamertime.location, &direction);
 
-            match self.wordsearch.get(gamertime.location) {
-                Some(c) => {
-                    gamertime.current_letter = *c;
-                    
-                    gamertime.current_state = self.letters.letter_test(&gamertime.current_letter);
+        DIRECTIONS.par_iter()
+                  .map(|&x| self.traverse(x));
+        
+    }
 
-                    self.whatitdo(&mut gamertime);
 
-                None => {
+    pub fn second_letter(&self, letter: &char, last_state: LastandSecondLast) -> LastandSecondLast {
+        let current_state = *self.letters.letter_test(letter);
 
-                }
-    
+        match LastandSecondLast::last_letter(current_state, last_state) {
 
+        }
+    }
+
+}
+
+
+
+impl DictLookup for WordBlob {
+    fn word_check(&self, word: &String) -> bool {
+        self.dictionary.lexicon.contains(word)
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {
