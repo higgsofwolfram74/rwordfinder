@@ -37,6 +37,13 @@ impl Dictionary {
     }
 }
 
+//just return true if word checked gets a match
+impl DictLookup for Dictionary {
+    fn word_check(&self, word: &String) -> bool {
+        self.lexicon.contains(word)
+    }
+}
+
 
 pub struct Letters {
     consonants: HashSet<char>,
@@ -105,6 +112,7 @@ pub enum LastandSecondLast {
     Tripleconsonant,
     Vowel,
     Doublevowel,
+    Triplevowel,
     Y,
     None
 }
@@ -234,6 +242,7 @@ impl WordBlob {
 
     fn traverse(&self, word: &mut CurrentWord, direction: &str) {
         loop {
+            let ourword = String::new();
             let next = WordBlob::go(word.location, direction);
 
             word.current_letter = *self.wordsearch.get(next).unwrap();
@@ -241,7 +250,27 @@ impl WordBlob {
             let current_state = self.letters.letter_test(&word.current_letter);
 
             match LastandSecondLast::last_letter(current_state, word.last_state) {
-                LastandSecondLast::Consonant
+                LastandSecondLast::None => {
+                    if word.letters.len() < 3 {
+                        word.letters = String::new();
+                        break;
+                    } else {
+                        break;
+                    }
+                }
+                _ => {
+                    word.letters.push(word.current_letter);
+
+                    if word.letters.len() >= 3 {
+                        if self.dictionary.word_check(word.letters) {
+                            ourword = word.letters;
+                        }
+                    }
+
+                    if word.letters.len() == LONGEST_WORD {
+                        break
+                    }
+                }
             }
 
             word.location = next;
@@ -252,8 +281,9 @@ impl WordBlob {
 
     
 
-    fn whatitdo(&self) {
+    fn whatitdo(&self, row: usize, column: usize) -> Option<Vec<((usize, usize), String)>> {
         let mut gamertime = CurrentWord::new();
+        let mut words: Vec<((usize, usize), String)> = Vec::new();
 
         gamertime.location = (row, column);
         gamertime.current_letter = *self.wordsearch.get(gamertime.location).unwrap();
@@ -265,8 +295,20 @@ impl WordBlob {
             gamertime.letters.push(gamertime.current_letter);
         }
 
-        DIRECTIONS.par_iter()
-                  .map(|&x| self.traverse(x));
+        for direction in DIRECTIONS.into_iter() {
+            self.traverse(&mut gamertime, direction);
+
+            if !(gamertime.letters.is_empty()) {
+                words.push(gamertime.final_word);
+            }
+        
+        }
+
+        if !(words.is_empty()) {
+            Some(words)
+        } else {
+            None
+        }
         
     }
 
