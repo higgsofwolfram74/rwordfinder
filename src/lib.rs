@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use ndarray::Array2;
+#[allow(unused_imports)]
 use rayon::prelude::*;
 
 const LONGEST_WORD: usize = 31;
@@ -85,9 +86,8 @@ struct CurrentWord {
     current_letter: char,
     letters: String,
     location: (usize, usize),
-    final_word: ((usize, usize), String),
+    final_word: String,
     last_state: LastandSecondLast,
-    current_state: LastandSecondLast,
 }
 
 impl CurrentWord {
@@ -96,16 +96,16 @@ impl CurrentWord {
             current_letter: '_',
             letters: String::new(),
             location: (0,0),
-            final_word: ((0,0), String::new()),
+            final_word: (String::new()),
             last_state: LastandSecondLast::None,
-            current_state: LastandSecondLast::None
+        
         }
     }
 }
 
 //See what the last letter was. Most words don't have more than 2 of a letter type sequentially
 //update: a select few words have 3 consonants together
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum LastandSecondLast {
     Consonant,
     Doubleconsonant,
@@ -119,7 +119,7 @@ pub enum LastandSecondLast {
 
 impl LastandSecondLast {
     //ugly code that takes our current letter state, compares it with the last code and returns the corresponding state
-    fn last_letter(current_letter: &LastandSecondLast, last_letter: &LastandSecondLast) -> LastandSecondLast {
+    fn last_letter(current_letter: LastandSecondLast, last_letter: LastandSecondLast) -> LastandSecondLast {
         match current_letter {
             LastandSecondLast::Consonant => {
                 
@@ -129,8 +129,9 @@ impl LastandSecondLast {
                     LastandSecondLast::Tripleconsonant => LastandSecondLast::None,
                     LastandSecondLast::Vowel => LastandSecondLast::Consonant,
                     LastandSecondLast::Doublevowel => LastandSecondLast::Consonant,
+                    LastandSecondLast::Triplevowel => LastandSecondLast::Consonant,
                     LastandSecondLast::Y => LastandSecondLast::Consonant,
-                    _ => LastandSecondLast::Err("Invariant broken")
+                    LastandSecondLast::None => panic!("We went too far we have to go back.")
 
                 
                 }
@@ -138,15 +139,17 @@ impl LastandSecondLast {
 
             
             LastandSecondLast::Vowel => {
+                
                 match last_letter {    
 
                     LastandSecondLast::Consonant => LastandSecondLast::Vowel,
                     LastandSecondLast::Doubleconsonant => LastandSecondLast::Vowel,
                     LastandSecondLast::Tripleconsonant => LastandSecondLast::Vowel,
                     LastandSecondLast::Vowel => LastandSecondLast::Doublevowel,
-                    LastandSecondLast::Doublevowel => LastandSecondLast::None,
+                    LastandSecondLast::Doublevowel => LastandSecondLast::Triplevowel,
+                    LastandSecondLast::Triplevowel => LastandSecondLast::None,
                     LastandSecondLast::Y => LastandSecondLast::Consonant,
-                    _ => LastandSecondLast::Err("Invariant broken")
+                    LastandSecondLast::None => panic!("We went too far we have to go back.")
                 }    
 
             }
@@ -159,14 +162,15 @@ impl LastandSecondLast {
                     LastandSecondLast::Tripleconsonant => LastandSecondLast::Y,
                     LastandSecondLast::Vowel => LastandSecondLast::Y,
                     LastandSecondLast::Doublevowel => LastandSecondLast::Y,
+                    LastandSecondLast::Triplevowel => LastandSecondLast::Y,
                     LastandSecondLast::Y => LastandSecondLast::None,
-                    _ => LastandSecondLast::Err("Invariant broken")
+                    LastandSecondLast::None => panic!("We went too far we have to go back.")
                 }
             }
 
             LastandSecondLast::None => LastandSecondLast::None,
 
-            _ => LastandSecondLast::Err("Data in corrupted state.")
+            _ => panic!("That's not how the current letter works.")
         }
     }
 
@@ -240,43 +244,50 @@ impl WordBlob {
     }
 
 
-    fn traverse(&self, word: &mut CurrentWord, direction: &str) {
+    fn traverse(&self, word: &mut CurrentWord, direction: &str) -> Option<String> {
         loop {
-            let ourword = String::new();
+            let ourword: String;
             let next = WordBlob::go(word.location, direction);
 
             word.current_letter = *self.wordsearch.get(next).unwrap();
 
             let current_state = self.letters.letter_test(&word.current_letter);
 
-            match LastandSecondLast::last_letter(current_state, word.last_state) {
+            word.last_state = LastandSecondLast::last_letter(current_state, word.last_state);
+            
+            
+            match  word.last_state{
                 LastandSecondLast::None => {
-                    if word.letters.len() < 3 {
-                        word.letters = String::new();
-                        break;
+                    if !(word.final_word.is_empty()) {
+                        break Some(word.final_word.clone())
                     } else {
-                        break;
-                    }
+                        break None
+                    }        
                 }
+
                 _ => {
                     word.letters.push(word.current_letter);
 
                     if word.letters.len() >= 3 {
-                        if self.dictionary.word_check(word.letters) {
-                            ourword = word.letters;
+                        if self.dictionary.word_check(&word.letters) {
+                            word.final_word = word.letters.clone();
                         }
                     }
 
                     if word.letters.len() == LONGEST_WORD {
-                        break
+                        if !(word.final_word.is_empty()) {
+                            break Some(word.final_word.clone())
+                        } else {
+                            break None
+                        }
                     }
                 }
             }
 
             word.location = next;
-            word.last_state = current_state;
 
         }
+
     }
 
     
@@ -299,7 +310,7 @@ impl WordBlob {
             self.traverse(&mut gamertime, direction);
 
             if !(gamertime.letters.is_empty()) {
-                words.push(gamertime.final_word);
+                words.push(((row, column), gamertime.final_word.clone()));
             }
         
         }
@@ -310,15 +321,6 @@ impl WordBlob {
             None
         }
         
-    }
-
-
-    pub fn second_letter(&self, letter: &char, last_state: LastandSecondLast) -> LastandSecondLast {
-        let current_state = *self.letters.letter_test(letter);
-
-        match LastandSecondLast::last_letter(current_state, last_state) {
-
-        }
     }
 
 }
