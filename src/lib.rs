@@ -2,13 +2,10 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use ndarray::Array2;
-#[allow(unused_imports)]
-use rayon::prelude::*;
+
 
 const LONGEST_WORD: usize = 31;
-const ARRAY_HEIGHT: usize = 5;
-const ARRAY_LENGTH: usize = 5;
+
 
 
 pub trait DictLookup {
@@ -26,7 +23,7 @@ impl Dictionary {
     pub fn init(path: &str) -> Dictionary {
         
 
-        let file = File::open(path).expect("File Not Found");
+        let file = File::open(path).expect(format!("File Not Found at {}, please recheck your path.", path));
 
         let reader = BufReader::new(file);
 
@@ -119,6 +116,7 @@ pub enum LastandSecondLast {
 
 impl LastandSecondLast {
     //ugly code that takes our current letter state, compares it with the last code and returns the corresponding state
+    //TODO: replace with match guards
     fn last_letter(current_letter: LastandSecondLast, last_letter: LastandSecondLast) -> LastandSecondLast {
         match current_letter {
             LastandSecondLast::Consonant => {
@@ -180,159 +178,167 @@ impl LastandSecondLast {
 const DIRECTIONS: [&'static str;  8] = ["Up", "Upleft", "Left", "Downleft", "Down", "Downright", "Right", "Upright"];
 
 
-pub struct WordBlob {
-    wordsearch: Array2<char>,
-    dictionary: Dictionary,
-    letters: Letters
-}
-
-
-
-impl WordBlob {
-    pub fn alloc(path_to_dictionary: &str) -> WordBlob {
-        WordBlob {
-            wordsearch: Array2::from_elem((ARRAY_HEIGHT, ARRAY_LENGTH), '_'),
-            dictionary: Dictionary::init(path_to_dictionary),
-            letters: Letters::init()
-        }
-    }
-
-    fn go((row, column): (usize, usize), direction: &str) -> (usize, usize) {
-        match direction {
-            "up" => return (row - 1, column),
-            "upright" => return (row - 1, column + 1),
-            "right" => return (row, column + 1),
-            "downright" => return (row + 1, column + 1),
-            "down" => return (row + 1, column),
-            "downleft" => return (row + 1, column - 1),
-            "left" => return (row, column - 1),
-            "upleft" => return (row - 1, column - 1),
-
-            _ => panic!("Unexpected direction passed")
-        }
-    }
-
+mod WordSearch {
+    use super::*;
     
-
-    pub fn get(&mut self, path: &str) {
-        let file = File::open(path).expect("File not found");
-
-        let reader = BufReader::new(file);
-
-        for (index, line) in reader.lines().enumerate() {
-            let mut line = line.unwrap();
-
-            if line.ends_with("\n") {
-                if line.ends_with("\r") {
-                    let _ = line.pop();
-                }
-                let _ = line.pop();
-            }
-
-            line.retain(|c| !c.is_whitespace());
-
-            if line.len() > ARRAY_LENGTH {
-                panic!("Wrong word search dimensions. Please set length to {}.", ARRAY_LENGTH);
-            } else if index > ARRAY_HEIGHT {
-                panic!("Input word search is too tall.");
-            } else {
-                for (jindex, character) in line.chars().enumerate() {
-                    self.wordsearch[[index, jindex]] = character; 
-                }
+    pub struct WordBlob {
+        wordsearch: Vec<char>,
+        dictionary: Dictionary,
+        letters: Letters
+    }
+    
+    
+    
+    impl WordBlob {
+        pub fn alloc(path_to_wordsearch: &str, path_to_dictionary: &str) -> WordBlob {
+            WordBlob {
+                wordsearch: WordBlob::get_wordsearch(path_to_wordsearch),
+                dictionary: Dictionary::init(path_to_dictionary),
+                letters: Letters::init()
             }
         }
-    }
-
-
-    fn traverse(&self, word: &mut CurrentWord, direction: &str) -> Option<String> {
-        loop {
-            let ourword: String;
-            let next = WordBlob::go(word.location, direction);
-
-            word.current_letter = *self.wordsearch.get(next).unwrap();
-
-            let current_state = self.letters.letter_test(&word.current_letter);
-
-            word.last_state = LastandSecondLast::last_letter(current_state, word.last_state);
-            
-            
-            match  word.last_state{
-                LastandSecondLast::None => {
-                    if !(word.final_word.is_empty()) {
-                        break Some(word.final_word.clone())
-                    } else {
-                        break None
-                    }        
-                }
-
-                _ => {
-                    word.letters.push(word.current_letter);
-
-                    if word.letters.len() >= 3 {
-                        if self.dictionary.word_check(&word.letters) {
-                            word.final_word = word.letters.clone();
-                        }
+    
+        pub fn get_wordsearch(path_to_wordsearch: &str) -> Vec<char> {
+            let wsearch: Vec<char> = Vec::new();
+            let width: usize = 0;
+    
+            let file = File::open(path_to_wordsearch)
+                .expect(format!("File Not Found at {}, please recheck your path.", path_to_wordsearch));
+    
+            let reader = BufReader::new(file);
+    
+            for line in reader.lines() {
+                let line = line.unwrap();
+    
+                if line.ends_with('\n') {
+                    line.pop();
+                    if line.ends_with('\r') {
+                        line.pop();
                     }
-
-                    if word.letters.len() == LONGEST_WORD {
+                }
+    
+                if width == 0 {
+                    width = line.len()
+                } else {
+                    if !(width == line.len()) {
+                        panic!("Wordsearch must be rectangular")
+                    }
+                }
+    
+                for letter in line.chars() {
+                    wsearch.push(letter)
+                }
+            }
+    
+            wsearch
+        }
+    
+    
+        fn go((row, column): (usize, usize), direction: &str) -> (usize, usize) {
+            match direction {
+                "up" => return (row - 1, column),
+                "upright" => return (row - 1, column + 1),
+                "right" => return (row, column + 1),
+                "downright" => return (row + 1, column + 1),
+                "down" => return (row + 1, column),
+                "downleft" => return (row + 1, column - 1),
+                "left" => return (row, column - 1),
+                "upleft" => return (row - 1, column - 1),
+    
+                _ => panic!("Unexpected direction passed")
+            }
+        }
+    
+    
+        fn traverse(&self, word: &mut CurrentWord, direction: &str) -> Option<String> {
+            loop {
+                let ourword: String;
+                let next = WordBlob::go(word.location, direction);
+    
+                word.current_letter = *self.wordsearch.get(next).unwrap();
+    
+                let current_state = self.letters.letter_test(&word.current_letter);
+    
+                word.last_state = LastandSecondLast::last_letter(current_state, word.last_state);
+                
+                
+                match  word.last_state{
+                    LastandSecondLast::None => {
                         if !(word.final_word.is_empty()) {
                             break Some(word.final_word.clone())
                         } else {
                             break None
+                        }        
+                    }
+    
+                    _ => {
+                        word.letters.push(word.current_letter);
+    
+                        if word.letters.len() >= 3 {
+                            if self.dictionary.word_check(&word.letters) {
+                                word.final_word = word.letters.clone();
+                            }
+                        }
+    
+                        if word.letters.len() == LONGEST_WORD {
+                            if !(word.final_word.is_empty()) {
+                                break Some(word.final_word.clone())
+                            } else {
+                                break None
+                            }
                         }
                     }
                 }
-            }
-
-            word.location = next;
-
-        }
-
-    }
-
     
-
-    fn whatitdo(&self, row: usize, column: usize) -> Option<Vec<((usize, usize), String)>> {
-        let mut gamertime = CurrentWord::new();
-        let mut words: Vec<((usize, usize), String)> = Vec::new();
-
-        gamertime.location = (row, column);
-        gamertime.current_letter = *self.wordsearch.get(gamertime.location).unwrap();
-        gamertime.last_state = self.letters.letter_test(&gamertime.current_letter);
-
-        if gamertime.last_state == LastandSecondLast::None { 
-                    return None;
-        } else {
-            gamertime.letters.push(gamertime.current_letter);
-        }
-
-        for direction in DIRECTIONS.into_iter() {
-            self.traverse(&mut gamertime, direction);
-
-            if !(gamertime.letters.is_empty()) {
-                words.push(((row, column), gamertime.final_word.clone()));
+                word.location = next;
+    
             }
-        
+    
         }
-
-        if !(words.is_empty()) {
-            Some(words)
-        } else {
-            None
-        }
+    
         
+    
+        fn whatitdo(&self, row: usize, column: usize) -> Option<Vec<((usize, usize), String)>> {
+            let mut gamertime = CurrentWord::new();
+            let mut words: Vec<((usize, usize), String)> = Vec::new();
+    
+            gamertime.location = (row, column);
+            gamertime.current_letter = *self.wordsearch.get(gamertime.location).unwrap();
+            gamertime.last_state = self.letters.letter_test(&gamertime.current_letter);
+    
+            if gamertime.last_state == LastandSecondLast::None { 
+                        return None;
+            } else {
+                gamertime.letters.push(gamertime.current_letter);
+            }
+    
+            for direction in DIRECTIONS.into_iter() {
+                self.traverse(&mut gamertime, direction);
+    
+                if !(gamertime.letters.is_empty()) {
+                    words.push(((row, column), gamertime.final_word.clone()));
+                }
+            
+            }
+    
+            if !(words.is_empty()) {
+                Some(words)
+            } else {
+                None
+            }
+            
+        }
+    
     }
-
-}
-
-
-
-impl DictLookup for WordBlob {
-    fn word_check(&self, word: &String) -> bool {
-        self.dictionary.lexicon.contains(word)
+    
+    
+    
+    impl DictLookup for WordBlob {
+        fn word_check(&self, word: &String) -> bool {
+            self.dictionary.lexicon.contains(word)
+        }
     }
 }
-
 
 
 #[cfg(test)]

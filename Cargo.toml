@@ -1,5 +1,5 @@
 [package]
-name = "wordfinder"
+name = "rwordfinder"
 version = "0.1.0"
 authors = ["Mark Riley Bomberry <higgsofwolfram74@gmail.com>"]
 edition = "2018"
@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 ndarray = "^0.15.1"
 rayon = "1.5"
+native-dialog = "0.5.5"
