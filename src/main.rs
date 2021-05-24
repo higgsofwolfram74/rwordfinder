@@ -4,11 +4,10 @@ use std::io;
 use std::io::prelude::*;
 use std::env;
 use rayon::prelude::*;
-use crate::WordSearch;
+//use crate::WordSearch;
 
+mod lib;
 fn main() {
-    
-
     let dict_path: String = match env::var("RWORDFINDER_DICT") {
         Ok(path) => path,
         
@@ -21,9 +20,11 @@ fn main() {
         Err(_) => path_getter()
     };
 
-    let wordsearch = WordBlob::alloc(&wordsearch_path, &dict_path);
+    let wordsearch = lib::WordBlob::alloc(&wordsearch_path, &dict_path);
 }
 
+
+//get path if env variable isn't set
 fn path_getter() -> String {
     if cfg!(target_os = "windows") {
                     
@@ -38,7 +39,7 @@ fn path_getter() -> String {
             None => panic!("The file has not been selected")
         };
 
-        path
+        path.into_os_string().into_string().expect("Improper encoding")
 
         
         
@@ -49,6 +50,8 @@ fn path_getter() -> String {
 
             io::stdin()
                 .read_line(&mut path)
-                .expect("Failed to read line")
+                .expect("Failed to read line");
+
+            path
     }
 }
