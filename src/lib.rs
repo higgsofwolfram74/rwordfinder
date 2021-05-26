@@ -64,12 +64,12 @@ impl Letters {
     }
 
 
-    pub fn letter_test(&self, letter: &char) -> LastandSecondLast {
-        if self.consonants.contains(letter) {
+    pub fn letter_test(&self, letter: char) -> LastandSecondLast {
+        if self.consonants.contains(&letter) {
             return LastandSecondLast::Consonant;
-        } else if self.vowels.contains(letter) {
+        } else if self.vowels.contains(&letter) {
             return LastandSecondLast::Vowel;
-        } else if *letter == 'y' {
+        } else if letter == 'y' {
             return LastandSecondLast::Y;
         } else {
             return LastandSecondLast::None;
@@ -77,26 +77,6 @@ impl Letters {
     }
 }
 
-struct AltWord {
-    current_letter: char,
-    letters: String,
-    location: (usize, usize),
-    final_word: usize,
-    last_state: LastandSecondLast,
-}
-
-impl AltWord {
-    fn new() -> AltWord {
-        AltWord {
-            current_letter: '_',
-            letters: String::new(),
-            location: (0,0),
-            final_word: 0,
-            last_state: LastandSecondLast::None,
-        
-        }
-    }
-}
 
 //See what the last letter was. Most words don't have more than 2 of a letter type sequentially
 //update: a select few words have 3 consonants & vowels together
@@ -139,15 +119,37 @@ impl LastandSecondLast {
 
 }
 
-const DIRECTIONS: [&'static str;  8] = ["Up", "Upleft", "Left", "Downleft", "Down", "Downright", "Right", "Upright"];
 
+//holds our word while we iterate
+struct AltWord {
+    current_letter: char,
+    letters: String,
+    location: [usize; 2],
+    final_word: usize,
+    last_state: LastandSecondLast,
+}
+
+impl AltWord {
+    fn new() -> AltWord {
+        AltWord {
+            current_letter: '_',
+            letters: String::new(),
+            location: [0, 0],
+            final_word: 0,
+            last_state: LastandSecondLast::None,
+        
+        }
+    }
+}
+
+
+const DIRECTIONS: [&'static str;  8] = ["Up", "Upleft", "Left", "Downleft", "Down", "Downright", "Right", "Upright"];
 
 pub struct WordBlob {
     wordsearch: Vec<char>,
     dictionary: Dictionary,
     letters: Letters,
     //wordsearch uses vec so only do rectangular wordsearches
-    length: usize,
     width: usize
 }
 
@@ -155,33 +157,27 @@ pub struct WordBlob {
 
 impl WordBlob {
     pub fn alloc(path_to_wordsearch: &str, path_to_dictionary: &str) -> WordBlob {
-        let found: (Vec<char>, usize, usize) = WordBlob::get_wordsearch(path_to_wordsearch);
+        let found: (Vec<char>, usize) = WordBlob::get_wordsearch(path_to_wordsearch);
         
         WordBlob {
             wordsearch: found.0,
             dictionary: Dictionary::init(path_to_dictionary),
             letters: Letters::init(),
-            length: found.1,
-            width: found.2
+            width: found.1
         }
     }
 
-    pub fn get_wordsearch(path_to_wordsearch: &str) -> (Vec<char>, usize, usize) {
+    pub fn get_wordsearch(path_to_wordsearch: &str) -> (Vec<char>, usize) {
         let wsearch: Vec<char> = Vec::new();
         let mut width: usize = 0;
-        let mut length: usize = 0;
 
         let file = File::open(path_to_wordsearch)
             .expect(format!("File Not Found at {}, please recheck your path.", path_to_wordsearch));
 
         let reader = BufReader::new(file);
 
-        length = reader.lines().count();
-
         for line in reader.lines() {
             let line = line.unwrap();
-
-
 
             if line.ends_with('\n') {
                 line.pop();
@@ -203,65 +199,90 @@ impl WordBlob {
             }
         }
 
-        (wsearch, length, width)
+        (wsearch, width)
     }
 
     //length, width
-    fn get(&self, location: [usize; 2]) -> Option<char> {
-        self.wordsearch.get([self.length * location[0] + location[1]])
+    fn gather(&self, location: [usize; 2]) -> Option<&char> {
+        let index: usize = self.width * location[0] + location[1];
+        self.wordsearch.get(index)
     }
 
 
-    fn go((row, column): (usize, usize), direction: &str) -> (usize, usize) {
+    fn go(location: [usize; 2], direction: &str) -> [usize; 2] {
         match direction {
-            "up" => return (row - 1, column),
-            "upright" => return (row - 1, column + 1),
-            "right" => return (row, column + 1),
-            "downright" => return (row + 1, column + 1),
-            "down" => return (row + 1, column),
-            "downleft" => return (row + 1, column - 1),
-            "left" => return (row, column - 1),
-            "upleft" => return (row - 1, column - 1),
+            "up" => [location[0] - 1, location[1]],
+            "upright" => [location[0] - 1, location[1] + 1],
+            "right" => [location[0], location[1] + 1],
+            "downright" => [location[0] + 1, location[1] + 1],
+            "down" => [location[0] + 1, location[1]],
+            "downleft" => [location[0] + 1, location[1] - 1],
+            "left" => [location[0], location[1] - 1],
+            "upleft" => [location[0] - 1, location[1] - 1],
 
             _ => panic!("Unexpected direction passed")
         }
     }
 
 
-    fn traverse(&self, word: &mut AltWord, direction: &str) -> Option<usize> {
+    fn traverse(&self, direction: &str, location: [usize; 2]) -> Option<(String, [usize; 2])>  {
         //big brain allocate mutable memory in loop so it drops out of scope
-        loop {
-            let ourword: String;
-            let next = WordBlob::go(word.location, direction);
+        let ourword: String;
+        let current_state: LastandSecondLast;
+        let mut currentword = AltWord::new();
 
-            word.current_letter = *self.wordsearch.get(next).unwrap();
+        currentword.location = location;
 
-            let current_state = self.letters.letter_test(&word.current_letter);
+        match self.gather(currentword.location) {
+            Some(c) => currentword.current_letter = *c,
+            None => panic!("Invariant: Function called out of bounds."),
+        }
 
-            word.last_state = LastandSecondLast::sequent_letter(current_state, word.last_state);
-            
-            
-            match  word.last_state{
+        currentword.last_state = self.letters.letter_test(currentword.current_letter);
+
+        if currentword.last_state == LastandSecondLast::None {
+            return None;
+        }
+        
+        loop {            
+            let next = WordBlob::go(currentword.location, direction);
+
+            match self.gather(next) {
+                Some(c) => currentword.current_letter = *c,
+                None => {
+                    if currentword.final_word != 0 {
+                        break Some((currentword.letters[..currentword.final_word].to_string(), location))
+                    } else {
+                        break None
+                    }
+                }
+            }
+
+            current_state = self.letters.letter_test(currentword.current_letter);
+
+            currentword.last_state = LastandSecondLast::sequent_letter(current_state, currentword.last_state);
+                        
+            match currentword.last_state{
                 LastandSecondLast::None => {
-                    if word.final_word != 0 {
-                        break Some(word.final_word)
+                    if currentword.final_word != 0 {
+                        break Some((currentword.letters[..currentword.final_word - 1].to_string(), location))
                     } else {
                         break None
                     }        
                 }
 
                 _ => {
-                    word.letters.push(word.current_letter);
+                    currentword.letters.push(currentword.current_letter);
 
-                    if word.letters.len() >= 3 {
-                        if self.dictionary.word_check(&word.letters) {
-                            word.final_word = word.letters.len();
+                    if currentword.letters.len() >= 3 {
+                        if self.dictionary.word_check(&currentword.letters) {
+                            currentword.final_word = currentword.letters.len();
                         }
                     }
 
-                    if word.letters.len() == LONGEST_WORD {
-                        if word.final_word != 0 {
-                            break Some(word.final_word.clone())
+                    if currentword.letters.len() == LONGEST_WORD {
+                        if currentword.final_word != 0 {
+                            break Some((currentword.letters[..currentword.final_word - 1].to_string(), location))
                         } else {
                             break None
                         }
@@ -269,38 +290,25 @@ impl WordBlob {
                 }
             }
 
-            word.location = next;
+            currentword.location = next;
 
         }
 
     }
 
 
-    pub fn start(&self, row: usize, column: usize) -> Option<Vec<((usize, usize), String)>> {
-        let mut gamertime = AltWord::new();
-        let mut words: Vec<((usize, usize), String)> = Vec::new();
+    pub fn start(&self, row: usize, column: usize) -> Option<Vec<(String, &str, [usize; 2])>> {    
+        let words_found: Vec<(String, &str, [usize; 2])>;
 
-        gamertime.location = (row, column);
-        gamertime.current_letter = *self.wordsearch.get(gamertime.location).unwrap();
-        gamertime.last_state = self.letters.letter_test(&gamertime.current_letter);
-
-        if gamertime.last_state == LastandSecondLast::None { 
-                    return None;
-        } else {
-            gamertime.letters.push(gamertime.current_letter);
+        for direction in DIRECTIONS.iter() {
+            match self.traverse(direction, [row, column]) {
+                Some(r) => words_found.push((r.0, direction, r.1)),
+                None => {}
+            }        
         }
 
-        for direction in DIRECTIONS.into_iter() {
-            self.traverse(&mut gamertime, direction);
-
-            if !(gamertime.letters.is_empty()) {
-                words.push(((row, column), gamertime.final_word.clone()));
-            }
-        
-        }
-
-        if !(words.is_empty()) {
-            Some(words)
+        if !(words_found.is_empty()) {
+            Some(words_found)
         } else {
             None
         }
