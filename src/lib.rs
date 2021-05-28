@@ -10,23 +10,22 @@ pub trait DictLookup {
     fn word_check(&self, word: &String) -> bool;
 }
 
-
 //holds the dictionary to use
 pub struct Dictionary {
-    lexicon: HashSet<String>
+    lexicon: HashSet<String>,
 }
-
 
 impl Dictionary {
     pub fn init(path: &str) -> Dictionary {
-        
-
-        let file = File::open(path).expect(format!("File Not Found at {}, please recheck your path.", path));
+        let file = File::open(path).expect(&format!(
+            "File Not Found at {}, please recheck your path.",
+            path
+        ));
 
         let reader = BufReader::new(file);
 
-        let read = reader.lines().map(|x| {x.unwrap()});
-        
+        let read = reader.lines().map(|x| x.unwrap());
+
         Dictionary {
             lexicon: read.collect(),
         }
@@ -40,7 +39,6 @@ impl DictLookup for Dictionary {
     }
 }
 
-
 pub struct Letters {
     consonants: HashSet<char>,
     vowels: HashSet<char>,
@@ -48,21 +46,20 @@ pub struct Letters {
 
 impl Letters {
     pub fn init() -> Letters {
+        let cons: HashSet<char> = vec![
+            'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v',
+            'w', 'x', 'z',
+        ]
+        .into_iter()
+        .collect();
 
-        let cons: HashSet<char> = vec!('b', 'c', 'd', 'f', 'g', 'h',
-                           'j', 'k', 'l', 'm', 'n', 'p',
-                           'q', 'r', 's', 't', 'v', 'w', 
-                           'x', 'z').into_iter().collect();
-
-
-        let vowel: HashSet<char> = vec!('a', 'e', 'i', 'o', 'u').into_iter().collect();
+        let vowel: HashSet<char> = vec!['a', 'e', 'i', 'o', 'u'].into_iter().collect();
 
         Letters {
             consonants: cons,
-            vowels: vowel
+            vowels: vowel,
         }
     }
-
 
     pub fn letter_test(&self, letter: char) -> LastandSecondLast {
         if self.consonants.contains(&letter) {
@@ -77,7 +74,6 @@ impl Letters {
     }
 }
 
-
 //See what the last letter was. Most words don't have more than 2 of a letter type sequentially
 //update: a select few words have 3 consonants & vowels together
 #[derive(PartialEq, Clone, Copy)]
@@ -89,36 +85,47 @@ pub enum LastandSecondLast {
     Doublevowel,
     Triplevowel,
     Y,
-    None
+    None,
 }
 
 impl LastandSecondLast {
     //ugly code that takes our current letter state, compares it with the last code and returns the corresponding state
     //TODO: replace with match guards
-    fn sequent_letter(current_letter: LastandSecondLast, last_letter: LastandSecondLast) -> LastandSecondLast {
-
+    fn sequent_letter(
+        current_letter: LastandSecondLast,
+        last_letter: LastandSecondLast,
+    ) -> LastandSecondLast {
         match current_letter {
-            LastandSecondLast::Consonant if last_letter == LastandSecondLast::Consonant => LastandSecondLast::Doubleconsonant,
-            LastandSecondLast::Consonant if last_letter == LastandSecondLast::Doubleconsonant => LastandSecondLast::Tripleconsonant,
-            LastandSecondLast::Consonant if last_letter == LastandSecondLast::Tripleconsonant => LastandSecondLast::None,
+            LastandSecondLast::Consonant if last_letter == LastandSecondLast::Consonant => {
+                LastandSecondLast::Doubleconsonant
+            }
+            LastandSecondLast::Consonant if last_letter == LastandSecondLast::Doubleconsonant => {
+                LastandSecondLast::Tripleconsonant
+            }
+            LastandSecondLast::Consonant if last_letter == LastandSecondLast::Tripleconsonant => {
+                LastandSecondLast::None
+            }
             LastandSecondLast::Consonant => LastandSecondLast::Consonant,
 
-            LastandSecondLast::Vowel if last_letter == LastandSecondLast::Vowel => LastandSecondLast::Doublevowel,
-            LastandSecondLast::Vowel if last_letter == LastandSecondLast::Doublevowel => LastandSecondLast::Triplevowel,
-            LastandSecondLast::Vowel if last_letter == LastandSecondLast::Triplevowel => LastandSecondLast::None,
+            LastandSecondLast::Vowel if last_letter == LastandSecondLast::Vowel => {
+                LastandSecondLast::Doublevowel
+            }
+            LastandSecondLast::Vowel if last_letter == LastandSecondLast::Doublevowel => {
+                LastandSecondLast::Triplevowel
+            }
+            LastandSecondLast::Vowel if last_letter == LastandSecondLast::Triplevowel => {
+                LastandSecondLast::None
+            }
             LastandSecondLast::Vowel => LastandSecondLast::Vowel,
-            
+
             LastandSecondLast::Y if last_letter == LastandSecondLast::Y => LastandSecondLast::None,
             LastandSecondLast::Y => LastandSecondLast::Y,
-            
+
             //if current letter isn't one of these 3 discriminants, we made a bad write somewhere
-            _ => panic!("That's not how the current letter works.")
+            _ => panic!("That's not how the current letter works."),
         }
     }
-
-
 }
-
 
 //holds our word while we iterate
 struct AltWord {
@@ -137,47 +144,54 @@ impl AltWord {
             location: [0, 0],
             final_word: 0,
             last_state: LastandSecondLast::None,
-        
         }
     }
 }
 
-
-const DIRECTIONS: [&'static str;  8] = ["Up", "Upleft", "Left", "Downleft", "Down", "Downright", "Right", "Upright"];
+const DIRECTIONS: [&'static str; 8] = [
+    "Up",
+    "Upleft",
+    "Left",
+    "Downleft",
+    "Down",
+    "Downright",
+    "Right",
+    "Upright",
+];
 
 pub struct WordBlob {
-    wordsearch: Vec<char>,
+    pub wordsearch: Vec<char>,
     dictionary: Dictionary,
     letters: Letters,
     //wordsearch uses vec so only do rectangular wordsearches
-    width: usize
+    width: usize,
 }
-
-
 
 impl WordBlob {
     pub fn alloc(path_to_wordsearch: &str, path_to_dictionary: &str) -> WordBlob {
         let found: (Vec<char>, usize) = WordBlob::get_wordsearch(path_to_wordsearch);
-        
+
         WordBlob {
             wordsearch: found.0,
             dictionary: Dictionary::init(path_to_dictionary),
             letters: Letters::init(),
-            width: found.1
+            width: found.1,
         }
     }
 
     pub fn get_wordsearch(path_to_wordsearch: &str) -> (Vec<char>, usize) {
-        let wsearch: Vec<char> = Vec::new();
+        let mut wsearch: Vec<char> = Vec::new();
         let mut width: usize = 0;
 
-        let file = File::open(path_to_wordsearch)
-            .expect(format!("File Not Found at {}, please recheck your path.", path_to_wordsearch));
+        let file = File::open(path_to_wordsearch).expect(&format!(
+            "File Not Found at {}, please recheck your path.",
+            path_to_wordsearch
+        ));
 
         let reader = BufReader::new(file);
 
         for line in reader.lines() {
-            let line = line.unwrap();
+            let mut line = line.unwrap();
 
             if line.ends_with('\n') {
                 line.pop();
@@ -202,12 +216,15 @@ impl WordBlob {
         (wsearch, width)
     }
 
+    pub fn indexer(&self, index: usize) -> [usize; 2] {
+        [index / self.width, index % self.width]
+    }
+
     //length, width
     fn gather(&self, location: [usize; 2]) -> Option<&char> {
         let index: usize = self.width * location[0] + location[1];
         self.wordsearch.get(index)
     }
-
 
     fn go(location: [usize; 2], direction: &str) -> [usize; 2] {
         match direction {
@@ -220,15 +237,13 @@ impl WordBlob {
             "left" => [location[0], location[1] - 1],
             "upleft" => [location[0] - 1, location[1] - 1],
 
-            _ => panic!("Unexpected direction passed")
+            _ => panic!("Unexpected direction passed"),
         }
     }
 
-
-    fn traverse(&self, direction: &str, location: [usize; 2]) -> Option<(String, [usize; 2])>  {
+    fn traverse(&self, direction: &str, location: [usize; 2]) -> Option<(String, [usize; 2])> {
         //big brain allocate mutable memory in loop so it drops out of scope
-        let ourword: String;
-        let current_state: LastandSecondLast;
+        let mut current_state: LastandSecondLast;
         let mut currentword = AltWord::new();
 
         currentword.location = location;
@@ -243,32 +258,39 @@ impl WordBlob {
         if currentword.last_state == LastandSecondLast::None {
             return None;
         }
-        
-        loop {            
+
+        loop {
             let next = WordBlob::go(currentword.location, direction);
 
             match self.gather(next) {
                 Some(c) => currentword.current_letter = *c,
                 None => {
                     if currentword.final_word != 0 {
-                        break Some((currentword.letters[..currentword.final_word].to_string(), location))
+                        break Some((
+                            currentword.letters[..currentword.final_word].to_string(),
+                            location,
+                        ));
                     } else {
-                        break None
+                        break None;
                     }
                 }
             }
 
             current_state = self.letters.letter_test(currentword.current_letter);
 
-            currentword.last_state = LastandSecondLast::sequent_letter(current_state, currentword.last_state);
-                        
-            match currentword.last_state{
+            currentword.last_state =
+                LastandSecondLast::sequent_letter(current_state, currentword.last_state);
+
+            match currentword.last_state {
                 LastandSecondLast::None => {
                     if currentword.final_word != 0 {
-                        break Some((currentword.letters[..currentword.final_word - 1].to_string(), location))
+                        break Some((
+                            currentword.letters[..currentword.final_word - 1].to_string(),
+                            location,
+                        ));
                     } else {
-                        break None
-                    }        
+                        break None;
+                    }
                 }
 
                 _ => {
@@ -282,29 +304,30 @@ impl WordBlob {
 
                     if currentword.letters.len() == LONGEST_WORD {
                         if currentword.final_word != 0 {
-                            break Some((currentword.letters[..currentword.final_word - 1].to_string(), location))
+                            break Some((
+                                currentword.letters[..currentword.final_word - 1].to_string(),
+                                location,
+                            ));
                         } else {
-                            break None
+                            break None;
                         }
                     }
                 }
             }
 
             currentword.location = next;
-
         }
-
     }
 
-
-    pub fn start(&self, row: usize, column: usize) -> Option<Vec<(String, &str, [usize; 2])>> {    
-        let words_found: Vec<(String, &str, [usize; 2])>;
+    pub fn start(&self, index: usize) -> Option<Vec<(String, String, [usize; 2])>> {
+        let mut words_found: Vec<(String, String, [usize; 2])> = Vec::new();
+        let location = self.indexer(index);
 
         for direction in DIRECTIONS.iter() {
-            match self.traverse(direction, [row, column]) {
-                Some(r) => words_found.push((r.0, direction, r.1)),
+            match self.traverse(direction, location) {
+                Some(r) => words_found.push((r.0, direction.to_string(), r.1)),
                 None => {}
-            }        
+            }
         }
 
         if !(words_found.is_empty()) {
@@ -312,12 +335,8 @@ impl WordBlob {
         } else {
             None
         }
-        
     }
-
 }
-
-
 
 impl DictLookup for WordBlob {
     fn word_check(&self, word: &String) -> bool {
@@ -326,7 +345,6 @@ impl DictLookup for WordBlob {
 }
 //}
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,6 +352,5 @@ mod tests {
     fn dictionary_checker() {
         let testdict = Dictionary::init("myDictsorted.txt");
         assert!(testdict.lexicon.contains("wantonly"));
-        
     }
 }
