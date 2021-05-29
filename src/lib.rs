@@ -226,16 +226,22 @@ impl WordBlob {
         self.wordsearch.get(index)
     }
 
-    fn go(location: [usize; 2], direction: &str) -> [usize; 2] {
+    fn go(location: [usize; 2], direction: &str) -> Option<[usize; 2]> {
         match direction {
-            "up" => [location[0] - 1, location[1]],
-            "upright" => [location[0] - 1, location[1] + 1],
-            "right" => [location[0], location[1] + 1],
-            "downright" => [location[0] + 1, location[1] + 1],
-            "down" => [location[0] + 1, location[1]],
-            "downleft" => [location[0] + 1, location[1] - 1],
-            "left" => [location[0], location[1] - 1],
-            "upleft" => [location[0] - 1, location[1] - 1],
+            "Up" if location[0] > 0 => Some([location[0] - 1, location[1]]),
+            "Upright" if location[0] > 0 => Some([location[0] - 1, location[1] + 1]),
+            "Right" => Some([location[0], location[1] + 1]),
+            "Downright" => Some([location[0] + 1, location[1] + 1]),
+            "Down" => Some([location[0] + 1, location[1]]),
+            "Downleft" if location[1] > 0 => Some([location[0] + 1, location[1] - 1]),
+            "Left" if location[1] > 0 => Some([location[0], location[1] - 1]),
+            "Upleft" if location[0] > 0 && location[1] > 0 => Some([location[0] - 1, location[1] - 1]),
+
+            "Up" => None,
+            "Upright" => None,
+            "Downleft" => None,
+            "Left" => None,
+            "Upleft" => None,
 
             _ => panic!("Unexpected direction passed"),
         }
@@ -260,7 +266,10 @@ impl WordBlob {
         }
 
         loop {
-            let next = WordBlob::go(currentword.location, direction);
+            let next = match WordBlob::go(currentword.location, direction) {
+                Some(i) => i,
+                None => return None, 
+            };
 
             match self.gather(next) {
                 Some(c) => currentword.current_letter = *c,
@@ -323,7 +332,7 @@ impl WordBlob {
         let mut words_found: Vec<(String, String, [usize; 2])> = Vec::new();
         let location = self.indexer(index);
 
-        for direction in DIRECTIONS.iter() {
+        for &direction in DIRECTIONS.iter() {
             match self.traverse(direction, location) {
                 Some(r) => words_found.push((r.0, direction.to_string(), r.1)),
                 None => {}

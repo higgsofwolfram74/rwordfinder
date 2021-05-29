@@ -1,13 +1,12 @@
 #[cfg(target_os = "windows")]
-use native_dialog::FileDialog;
+use native_dialog::{FileDialog, MessageDialog, MessageType};
 
 use rayon::prelude::*;
 use std::env;
 use std::io;
 
-//use crate::WordSearch;
-
 mod lib;
+
 fn main() {
     let dict_path: String = match env::var("RWORDFINDER_DICT") {
         Ok(path) => path,
@@ -21,8 +20,12 @@ fn main() {
         Err(_) => path_getter(),
     };
 
+    println!("Allocating data");
+
     let to_solve = lib::WordBlob::alloc(&wordsearch_path, &dict_path);
 
+    println!("Starting execution");
+    
     let results: Vec<_> = (0..to_solve.wordsearch.len())
         .into_par_iter()
         .map(|x| lib::WordBlob::start(&to_solve, x))
@@ -54,9 +57,21 @@ fn path_getter() -> String {
             None => panic!("The file has not been selected"),
         };
 
-        path.into_os_string()
-            .into_string()
-            .expect("Improper encoding")
+        let yes = MessageDialog::new()
+            .set_type(MessageType::Info)
+            .set_title("Do you want to open the file?")
+            .set_text(&format!("{:#?}", path))
+            .show_confirm()
+            .unwrap();
+
+        if yes {
+            path.into_os_string()
+                .into_string()
+                .expect("Improper encoding")
+        } else {
+            panic!("Idk what to do here tbh")
+        }
+
     } else {
         println!("Please write out a path to the dictionary");
 
