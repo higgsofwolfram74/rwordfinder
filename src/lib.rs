@@ -11,22 +11,21 @@ pub trait DictLookup {
 }
 
 //holds the dictionary to use
+#[derive(Debug, PartialEq)]
 pub struct Dictionary {
     lexicon: HashSet<String>,
 }
 
 impl Dictionary {
-    pub fn init(path: &str) -> Dictionary {
-        let file = File::open(path).expect(&format!(
-            "File Not Found at {}, please recheck your path.",
-            path
-        ));
+    pub fn init(path: &str) -> Self {
+        let file = File::open(path)
+            .unwrap_or_else(|_| panic!("File Not Found at {}, please recheck your path.", path));
 
         let reader = BufReader::new(file);
 
         let read = reader.lines().map(|x| x.unwrap());
 
-        Dictionary {
+        Self {
             lexicon: read.collect(),
         }
     }
@@ -39,13 +38,15 @@ impl DictLookup for Dictionary {
     }
 }
 
+//Use hash set for O(1) contains method
+#[derive(Debug, PartialEq)]
 pub struct Letters {
     consonants: HashSet<char>,
     vowels: HashSet<char>,
 }
 
 impl Letters {
-    pub fn init() -> Letters {
+    pub fn init() -> Self {
         let cons: HashSet<char> = vec![
             'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v',
             'w', 'x', 'z',
@@ -55,7 +56,7 @@ impl Letters {
 
         let vowel: HashSet<char> = vec!['a', 'e', 'i', 'o', 'u'].into_iter().collect();
 
-        Letters {
+        Self {
             consonants: cons,
             vowels: vowel,
         }
@@ -76,7 +77,7 @@ impl Letters {
 
 //See what the last letter was. Most words don't have more than 2 of a letter type sequentially
 //update: a select few words have 3 consonants & vowels together
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LastandSecondLast {
     Consonant,
     Doubleconsonant,
@@ -89,8 +90,6 @@ pub enum LastandSecondLast {
 }
 
 impl LastandSecondLast {
-    //ugly code that takes our current letter state, compares it with the last code and returns the corresponding state
-    //TODO: replace with match guards
     fn sequent_letter(
         current_letter: LastandSecondLast,
         last_letter: LastandSecondLast,
@@ -128,25 +127,6 @@ impl LastandSecondLast {
 }
 
 //holds our word while we iterate
-struct AltWord {
-    current_letter: char,
-    letters: String,
-    location: [usize; 2],
-    final_word: usize,
-    last_state: LastandSecondLast,
-}
-
-impl AltWord {
-    fn new() -> AltWord {
-        AltWord {
-            current_letter: '_',
-            letters: String::new(),
-            location: [0, 0],
-            final_word: 0,
-            last_state: LastandSecondLast::None,
-        }
-    }
-}
 
 const DIRECTIONS: [&'static str; 8] = [
     "Up",
@@ -159,34 +139,23 @@ const DIRECTIONS: [&'static str; 8] = [
     "Upright",
 ];
 
-pub struct WordBlob {
-    pub wordsearch: Vec<char>,
-    dictionary: Dictionary,
-    letters: Letters,
-    //wordsearch uses vec so only do rectangular wordsearches
+#[derive(Debug, PartialEq)]
+pub struct Wordsearch {
+    character_matrix: Vec<char>,
     width: usize,
 }
 
-impl WordBlob {
-    pub fn alloc(path_to_wordsearch: &str, path_to_dictionary: &str) -> WordBlob {
-        let found: (Vec<char>, usize) = WordBlob::get_wordsearch(path_to_wordsearch);
-
-        WordBlob {
-            wordsearch: found.0,
-            dictionary: Dictionary::init(path_to_dictionary),
-            letters: Letters::init(),
-            width: found.1,
-        }
-    }
-
-    pub fn get_wordsearch(path_to_wordsearch: &str) -> (Vec<char>, usize) {
+impl Wordsearch {
+    pub fn init(path_to_wordsearch: &str) -> Self {
         let mut wsearch: Vec<char> = Vec::new();
-        let mut width: usize = 0;
+        let mut column: usize = 0;
 
-        let file = File::open(path_to_wordsearch).expect(&format!(
-            "File Not Found at {}, please recheck your path.",
-            path_to_wordsearch
-        ));
+        let file = File::open(path_to_wordsearch).unwrap_or_else(|_| {
+            panic!(
+                "File Not Found at {}, please recheck your path.",
+                path_to_wordsearch
+            )
+        });
 
         let reader = BufReader::new(file);
 
@@ -200,10 +169,10 @@ impl WordBlob {
                 }
             }
 
-            if width == 0 {
-                width = line.len()
+            if column == 0 {
+                column = line.len()
             } else {
-                if !(width == line.len()) {
+                if !(column == line.len()) {
                     panic!("Wordsearch must be rectangular")
                 }
             }
@@ -213,37 +182,92 @@ impl WordBlob {
             }
         }
 
-        (wsearch, width)
+        Self {
+            character_matrix: wsearch,
+            width: column,
+        }
+    }
+
+    pub fn get(&self, index: [usize; 2]) -> Option<char> {
+        if index[1] < self.width {
+            let local: usize = self.width * index[0] + index[1];
+
+            if self.character_matrix.get(local).is_some() {
+                Some(self.character_matrix[local])
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     pub fn indexer(&self, index: usize) -> [usize; 2] {
         [index / self.width, index % self.width]
     }
 
-    //length, width
-    fn gather(&self, location: [usize; 2]) -> Option<&char> {
-        let index: usize = self.width * location[0] + location[1];
-        self.wordsearch.get(index)
+    pub fn go(&self, location: [usize; 2], direction: &str) -> Option<[usize; 2]> {
+        let point = match direction {
+            "Up" if location[0] > 0 => [location[0] - 1, location[1]],
+            "Upleft" if location[0] > 0 && location[1] > 0 => [location[0] - 1, location[1] - 1],
+            "Left" if location[1] > 0 => [location[0], location[1] - 1],
+            "Downleft" if location[1] > 0 => [location[0] + 1, location[1] - 1],
+            "Down" => [location[0] + 1, location[1]],
+            "Downright" => [location[0] + 1, location[1] + 1],
+            "Right" => [location[0], location[1] + 1],
+            "Upright" if location[0] > 0 => [location[0] - 1, location[1] + 1],
+
+            "Up" | "Upleft" | "Left" | "Downleft" | "Upright" => return None,
+
+            _ => panic!("Invalid Direction has been passed"),
+        };
+
+        if point[0] >= self.width {
+            None
+        } else {
+            Some(point)
+        }
     }
 
-    fn go(location: [usize; 2], direction: &str) -> Option<[usize; 2]> {
-        match direction {
-            "Up" if location[0] > 0 => Some([location[0] - 1, location[1]]),
-            "Upright" if location[0] > 0 => Some([location[0] - 1, location[1] + 1]),
-            "Right" => Some([location[0], location[1] + 1]),
-            "Downright" => Some([location[0] + 1, location[1] + 1]),
-            "Down" => Some([location[0] + 1, location[1]]),
-            "Downleft" if location[1] > 0 => Some([location[0] + 1, location[1] - 1]),
-            "Left" if location[1] > 0 => Some([location[0], location[1] - 1]),
-            "Upleft" if location[0] > 0 && location[1] > 0 => Some([location[0] - 1, location[1] - 1]),
+    pub fn len(&self) -> usize {
+        self.character_matrix.len()
+    }
+}
 
-            "Up" => None,
-            "Upright" => None,
-            "Downleft" => None,
-            "Left" => None,
-            "Upleft" => None,
+struct AltWord {
+    current_letter: char,
+    letters: String,
+    location: [usize; 2],
+    final_word: usize,
+    last_state: LastandSecondLast,
+}
 
-            _ => panic!("Unexpected direction passed"),
+impl AltWord {
+    fn new() -> Self {
+        Self {
+            current_letter: '_',
+            letters: String::new(),
+            location: [0, 0],
+            final_word: 0,
+            last_state: LastandSecondLast::None,
+        }
+    }
+}
+
+//struct to just hold everything together
+#[derive(Debug, PartialEq)]
+pub struct WordBlob {
+    pub wordsearch: Wordsearch,
+    dictionary: Dictionary,
+    letters: Letters,
+}
+
+impl WordBlob {
+    pub fn alloc(path_to_wordsearch: &str, path_to_dictionary: &str) -> Self {
+        Self {
+            wordsearch: Wordsearch::init(path_to_wordsearch),
+            dictionary: Dictionary::init(path_to_dictionary),
+            letters: Letters::init(),
         }
     }
 
@@ -254,8 +278,10 @@ impl WordBlob {
 
         currentword.location = location;
 
-        match self.gather(currentword.location) {
-            Some(c) => currentword.current_letter = *c,
+        match self.wordsearch.get(currentword.location) {
+            Some(c) => {
+                currentword.current_letter = c;
+            }
             None => panic!("Invariant: Function called out of bounds."),
         }
 
@@ -263,16 +289,20 @@ impl WordBlob {
 
         if currentword.last_state == LastandSecondLast::None {
             return None;
+        } else {
+            currentword.letters.push(currentword.current_letter);
         }
 
-        loop {
-            let next = match WordBlob::go(currentword.location, direction) {
+        let word = loop {
+            //move to next letter
+            let next = match self.wordsearch.go(currentword.location, direction) {
                 Some(i) => i,
-                None => return None, 
+                None => return None,
             };
 
-            match self.gather(next) {
-                Some(c) => currentword.current_letter = *c,
+            //get the next letter to add
+            match self.wordsearch.get(next) {
+                Some(c) => currentword.current_letter = c,
                 None => {
                     if currentword.final_word != 0 {
                         break Some((
@@ -306,7 +336,9 @@ impl WordBlob {
                     currentword.letters.push(currentword.current_letter);
 
                     if currentword.letters.len() >= 3 {
+                        println!("Testing {}", currentword.letters);
                         if self.dictionary.word_check(&currentword.letters) {
+                            println!("Word found! {}", currentword.letters);
                             currentword.final_word = currentword.letters.len();
                         }
                     }
@@ -325,15 +357,15 @@ impl WordBlob {
             }
 
             currentword.location = next;
-        }
+        };
     }
 
-    pub fn start(&self, index: usize) -> Option<Vec<(String, String, [usize; 2])>> {
+    pub fn start(&self, index: [usize; 2]) -> Option<Vec<(String, String, [usize; 2])>> {
         let mut words_found: Vec<(String, String, [usize; 2])> = Vec::new();
-        let location = self.indexer(index);
 
         for &direction in DIRECTIONS.iter() {
-            match self.traverse(direction, location) {
+            println!("We're at {:?} going {}", index, direction);
+            match self.traverse(direction, index) {
                 Some(r) => words_found.push((r.0, direction.to_string(), r.1)),
                 None => {}
             }
@@ -352,14 +384,87 @@ impl DictLookup for WordBlob {
         self.dictionary.lexicon.contains(word)
     }
 }
+
 //}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    //#[test]
+    //fn dictionary_checker() {
+    //    let testvec: Wordsearch = Wordsearch{
+    //        character_matrix: vec!('a', 'b', 'c', 'a', 'p', 't', 'i', 'h', 'g'),
+    //        width: 3
+    //    };
+    //
+    //    let testblob: WordBlob = WordBlob {
+    //        wordsearch: testvec,
+    //        dictionary: Dictionary::init("myDictsorted.txt"),
+    //        letters: Letters::init(),
+    //    };
+    //
+    //    assert_eq!(testblob, WordBlob::alloc("test.txt", "myDictsorted.txt"));
+    //}
+
     #[test]
-    fn dictionary_checker() {
-        let testdict = Dictionary::init("myDictsorted.txt");
-        assert!(testdict.lexicon.contains("wantonly"));
+    fn where_are_we() {
+        let testvec: Wordsearch = Wordsearch {
+            character_matrix: vec!['a', 'b', 'c', 'a', 'p', 't', 'i', 'h', 'g'],
+            width: 3,
+        };
+
+        assert_eq!(testvec.get([2, 0]).unwrap(), 'i');
+        assert_eq!(testvec.get([1, 1]).unwrap(), 'p');
+        assert_eq!(testvec.get([0, 5]), None);
+        assert_eq!(testvec.get([22, 8]), None);
+    }
+
+    #[test]
+    fn where_do_we_go() {
+        let testvec: Wordsearch = Wordsearch {
+            character_matrix: vec!['a', 'b', 'c', 'a', 'p', 't', 'i', 'h', 'g'],
+            width: 3,
+        };
+
+        let up = "Up";
+        let right = "Right";
+        let downleft = "Downleft";
+
+        assert_eq!(testvec.go([1, 0], up).unwrap(), [0, 0]);
+        assert_eq!(testvec.go([1, 0], right).unwrap(), [1, 1]);
+        assert_eq!(testvec.go([1, 0], downleft), None);
+        assert_eq!(testvec.go([5, 7], up), None);
+    }
+
+    #[test]
+    fn indexing() {
+        let testvec: Wordsearch = Wordsearch {
+            character_matrix: vec!['a', 'b', 'c', 'a', 'p', 't', 'i', 'h', 'g'],
+            width: 3,
+        };
+
+        assert_eq!(testvec.indexer(7), [2, 1]);
+        assert_eq!(testvec.indexer(5), [1, 2]);
+    }
+
+    #[test]
+    fn cat() {
+        let testvec: Wordsearch = Wordsearch {
+            character_matrix: vec!['c', 'b', 'c', 'a', 'p', 't', 'r', 'h', 'g'],
+            width: 3,
+        };
+
+        let mut word = String::new();
+        let mut location = [0, 0];
+
+        for _ in 0..2 {
+            word.push(testvec.get(location).unwrap());
+            location = testvec.go(location, "Down").unwrap();
+        }
+
+        word.push(testvec.get(location).unwrap());
+        assert_eq!(word, "car");
     }
 }
+
+//row, column

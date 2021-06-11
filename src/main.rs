@@ -25,19 +25,17 @@ fn main() {
     let to_solve = lib::WordBlob::alloc(&wordsearch_path, &dict_path);
 
     println!("Starting execution");
-    
+
     let results: Vec<_> = (0..to_solve.wordsearch.len())
-        .into_par_iter()
-        .map(|x| lib::WordBlob::start(&to_solve, x))
+        .into_iter()
+        .map(|x| lib::WordBlob::start(&to_solve, lib::Wordsearch::indexer(&to_solve.wordsearch, x)))
         .collect();
 
     for result in results {
         match result {
-            Some(v) => {
-                for word in v {
-                    println!("Word {} found at {:?} going {}", word.0, word.2, word.1)
-                }
-            }
+            Some(v) => v
+                .into_iter()
+                .for_each(|x| println!("Word {} found at {:?} going {}", x.0, x.2, x.1)),
             None => (),
         }
     }
@@ -71,7 +69,6 @@ fn path_getter() -> String {
         } else {
             panic!("Idk what to do here tbh")
         }
-
     } else {
         println!("Please write out a path to the dictionary");
 
