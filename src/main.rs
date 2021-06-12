@@ -11,13 +11,19 @@ fn main() {
     let dict_path: String = match env::var("RWORDFINDER_DICT") {
         Ok(path) => path,
 
-        Err(_) => path_getter(),
+        Err(_) => {
+            println!("provide path to the dictionary");
+            path_getter()
+        }
     };
 
     let wordsearch_path = match env::var("RWORDFINDER_WSEARCH") {
         Ok(path) => path,
 
-        Err(_) => path_getter(),
+        Err(_) => {
+            println!("provide path to the wordsearch");
+            path_getter()
+        }
     };
 
     println!("Allocating data");
@@ -27,10 +33,14 @@ fn main() {
     println!("Starting execution");
 
     let results: Vec<_> = (0..to_solve.wordsearch.len())
-        .into_iter()
+        .into_par_iter()
         .map(|x| lib::WordBlob::start(&to_solve, lib::Wordsearch::indexer(&to_solve.wordsearch, x)))
         .collect();
 
+    if results.iter().all(|x| x.is_none()) {
+        println!("No words found.")
+    }
+    
     for result in results {
         match result {
             Some(v) => v
@@ -45,7 +55,7 @@ fn main() {
 fn path_getter() -> String {
     if cfg!(target_os = "windows") {
         let path = FileDialog::new()
-            .set_location(".")
+            .set_location(&std::env::current_dir().unwrap())
             .add_filter("Text file", &["txt"])
             .show_open_single_file()
             .unwrap();

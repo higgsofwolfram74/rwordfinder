@@ -293,15 +293,32 @@ impl WordBlob {
             currentword.letters.push(currentword.current_letter);
         }
 
-        let word = loop {
+        loop {
+            let next: Option<[usize; 2]>;
             //move to next letter
-            let next = match self.wordsearch.go(currentword.location, direction) {
-                Some(i) => i,
-                None => return None,
+            match self.wordsearch.go(currentword.location, direction) {
+                Some(i) => next = Some(i),
+                None => next = None,
             };
 
+            //if go returns none, we have reached the bound
+            if next.is_none() {
+                if currentword.final_word != 0 {
+
+                    break Some((
+                        currentword.letters[..currentword.final_word].to_string(),
+                        location,
+                    ));
+                } else {
+                    break None;
+                }
+
+            } else {
+                currentword.location = next.unwrap();
+            }
+
             //get the next letter to add
-            match self.wordsearch.get(next) {
+            match self.wordsearch.get(currentword.location) {
                 Some(c) => currentword.current_letter = c,
                 None => {
                     if currentword.final_word != 0 {
@@ -320,11 +337,14 @@ impl WordBlob {
             currentword.last_state =
                 LastandSecondLast::sequent_letter(current_state, currentword.last_state);
 
+
+
             match currentword.last_state {
                 LastandSecondLast::None => {
                     if currentword.final_word != 0 {
+
                         break Some((
-                            currentword.letters[..currentword.final_word - 1].to_string(),
+                            currentword.letters[..currentword.final_word].to_string(),
                             location,
                         ));
                     } else {
@@ -336,9 +356,8 @@ impl WordBlob {
                     currentword.letters.push(currentword.current_letter);
 
                     if currentword.letters.len() >= 3 {
-                        println!("Testing {}", currentword.letters);
+                        //println!("Testing {}", currentword.letters);
                         if self.dictionary.word_check(&currentword.letters) {
-                            println!("Word found! {}", currentword.letters);
                             currentword.final_word = currentword.letters.len();
                         }
                     }
@@ -346,7 +365,7 @@ impl WordBlob {
                     if currentword.letters.len() == LONGEST_WORD {
                         if currentword.final_word != 0 {
                             break Some((
-                                currentword.letters[..currentword.final_word - 1].to_string(),
+                                currentword.letters[..currentword.final_word].to_string(),
                                 location,
                             ));
                         } else {
@@ -355,21 +374,19 @@ impl WordBlob {
                     }
                 }
             }
-
-            currentword.location = next;
-        };
+        }
     }
 
     pub fn start(&self, index: [usize; 2]) -> Option<Vec<(String, String, [usize; 2])>> {
         let mut words_found: Vec<(String, String, [usize; 2])> = Vec::new();
 
         for &direction in DIRECTIONS.iter() {
-            println!("We're at {:?} going {}", index, direction);
             match self.traverse(direction, index) {
                 Some(r) => words_found.push((r.0, direction.to_string(), r.1)),
                 None => {}
             }
         }
+
 
         if !(words_found.is_empty()) {
             Some(words_found)
