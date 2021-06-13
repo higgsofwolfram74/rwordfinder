@@ -304,7 +304,6 @@ impl WordBlob {
             //if go returns none, we have reached the bound
             if next.is_none() {
                 if currentword.final_word != 0 {
-
                     break Some((
                         currentword.letters[..currentword.final_word].to_string(),
                         location,
@@ -312,7 +311,6 @@ impl WordBlob {
                 } else {
                     break None;
                 }
-
             } else {
                 currentword.location = next.unwrap();
             }
@@ -337,12 +335,9 @@ impl WordBlob {
             currentword.last_state =
                 LastandSecondLast::sequent_letter(current_state, currentword.last_state);
 
-
-
             match currentword.last_state {
                 LastandSecondLast::None => {
                     if currentword.final_word != 0 {
-
                         break Some((
                             currentword.letters[..currentword.final_word].to_string(),
                             location,
@@ -386,7 +381,6 @@ impl WordBlob {
                 None => {}
             }
         }
-
 
         if !(words_found.is_empty()) {
             Some(words_found)

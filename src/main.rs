@@ -40,7 +40,7 @@ fn main() {
     if results.iter().all(|x| x.is_none()) {
         println!("No words found.")
     }
-    
+
     for result in results {
         match result {
             Some(v) => v
@@ -49,6 +49,14 @@ fn main() {
             None => (),
         }
     }
+
+    let mut _hold_on = String::new();
+
+    println!("Please press enter to continue");
+
+    io::stdin()
+        .read_line(&mut _hold_on)
+        .expect("Failed to read line.");
 }
 
 //get path if env variable isn't set
